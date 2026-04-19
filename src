@@ -1,0 +1,1165 @@
+import { useState, useRef, useEffect } from "react";
+
+const B = {
+  primary: "#0F2A4A", accent: "#00C896", danger: "#E53E3E",
+  warning: "#F6AD55", light: "#F7FAFC", card: "#FFFFFF",
+  text: "#1A202C", muted: "#718096", border: "#E2E8F0",
+};
+
+function buildPrompt(co) {
+  const hdr = co.name ? `\nCOMPANY PROFILE — include in ALL document headers:
+Name: ${co.name}${co.address?`\nAddress: ${co.address}`:""}${co.phone?`\nPhone: ${co.phone}`:""}${co.email?`\nEmail: ${co.email}`:""}${co.website?`\nWebsite: ${co.website}`:""}${co.regNumber?`\nCompany Reg: ${co.regNumber}`:""}${co.insuranceRef?`\nInsurance Ref: ${co.insuranceRef}`:""}${co.hseNumber?`\nHSE Account: ${co.hseNumber}`:""}${co.hsContact?`\nH&S Contact: ${co.hsContact}`:""}${co.hsPhone?`\nH&S Phone: ${co.hsPhone}`:""}${co.sector?`\nSector: ${co.sector}`:""}
+Doc ref format: ${co.name.replace(/\s+/g,"-").toUpperCase()}-[YEAR]-[###]
+ALWAYS start generated RAMS with the company header above, followed by a dividing line.\n` : "";
+
+  return `You are RAMS HQ — an expert AI Health & Safety consultant, the most advanced RAMS intelligence platform available.${hdr}
+REGULATORY EXPERTISE: IOSH Managing Safely, NEBOSH NGC, UK HSE (HSWA 1974, Management Regs 1999, CDM 2015, PUWER, COSHH, Working at Height Regs 2005, Manual Handling Regs 1992, RIDDOR 2013), EN ISO PPE standards (EN 397, EN ISO 20345, EN 388, EN 166, EN 149, EN ISO 20471, EN 1080), ISO 45001, UAE OSHAD-SF, EU OSH Directives, US OSHA.
+
+MODE 1 — REVIEW & GAP ANALYSIS
+Produce: Compliance Score (0-100) across 6 dimensions | GAP TABLE with ✅⚠️❌ | Priority Fixes | Liability Confidence Score (1-10) | Corrective Language.
+
+MODE 2 — GENERATE RAMS
+${co.name?`Start with:\n---\n${co.name}${co.address?`\n${co.address}`:""}${co.phone?`\nTel: ${co.phone}`:""}${co.email?` | Email: ${co.email}`:""}${co.regNumber?`\nReg: ${co.regNumber}`:""}${co.insuranceRef?` | Insurance: ${co.insuranceRef}`:""}${co.hsContact?`\nH&S Contact: ${co.hsContact}`:""}
+---`:"Start with company name if provided."}
+Then include: Ref, Issue Date, Review Date, Jurisdiction, Task Description, Personnel & Competency, Hazard Table (L×S matrix), PPE Requirements (EVERY item with exact EN standard — NEVER "appropriate PPE"), Hierarchy of Controls (all 5 levels), Method Statement (numbered steps), Emergency Procedures, COSHH, Environmental, Quality Score /100, Liability Score /10, Sign-off block with spaces for names/signatures.
+
+MODE 3 — TOOLBOX TALK + TEST
+Include company header on briefing sheet. Generate: Key Messages, Hazards, Safe Steps, PPE (with standards), Emergency, Golden Rules, Discussion Questions. Then 10-question MCQ test:
+Q1. [question]
+A) B) C) D)
+CORRECT: [letter] — [explanation]
+Pass mark 8/10.
+
+RULES: Never vague PPE. Always exact EN standard. Always company header in MODE 2 & 3.`;
+}
+
+function CompanyModal({ company, onSave, onClose }) {
+  const [f, setF] = useState({...company});
+  const [logo, setLogo] = useState(company.logoUrl||null);
+  const fileRef = useRef();
+
+  const inp = (key, label, ph, type="text", half=false) => (
+    <div style={{marginBottom:12, ...(half?{}:{})}}>
+      <label style={{display:"block",fontSize:11,fontWeight:700,color:B.muted,marginBottom:4,textTransform:"uppercase",letterSpacing:0.8}}>{label}</label>
+      <input type={type} value={f[key]||""} onChange={e=>setF(p=>({...p,[key]:e.target.value}))} placeholder={ph}
+        style={{width:"100%",padding:"9px 11px",border:`1.5px solid ${B.border}`,borderRadius:8,fontSize:14,color:B.text,fontFamily:"inherit",boxSizing:"border-box",outline:"none"}}
+        onFocus={e=>e.target.style.borderColor=B.accent} onBlur={e=>e.target.style.borderColor=B.border} />
+    </div>
+  );
+
+  const handleLogo = e => {
+    const file = e.target.files?.[0]; if(!file) return;
+    const r = new FileReader();
+    r.onload = ev => { setLogo(ev.target.result); setF(p=>({...p,logoUrl:ev.target.result})); };
+    r.readAsDataURL(file);
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:16}}>
+      <div style={{background:"#fff",borderRadius:20,width:"100%",maxWidth:540,maxHeight:"92vh",overflow:"auto",boxShadow:"0 24px 80px rgba(0,0,0,0.3)"}}>
+        {/* sticky header */}
+        <div style={{padding:"20px 24px 14px",borderBottom:`1px solid ${B.border}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:"#fff",zIndex:1}}>
+          <div>
+            <div style={{fontWeight:800,fontSize:17,color:B.primary}}>🏢 Company Profile</div>
+            <div style={{fontSize:12,color:B.muted,marginTop:2}}>Your details & logo appear on every generated document</div>
+          </div>
+          <button onClick={onClose} style={{width:30,height:30,borderRadius:7,border:`1px solid ${B.border}`,background:B.light,cursor:"pointer",fontSize:15,color:B.muted,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+        </div>
+
+        <div style={{padding:"20px 24px"}}>
+          {/* Logo */}
+          <div style={{marginBottom:20}}>
+            <label style={{display:"block",fontSize:11,fontWeight:700,color:B.muted,marginBottom:8,textTransform:"uppercase",letterSpacing:0.8}}>Company Logo</label>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div onClick={()=>fileRef.current?.click()}
+                style={{width:90,height:90,borderRadius:12,border:`2px dashed ${logo?B.accent:B.border}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",overflow:"hidden",background:B.light,flexShrink:0}}>
+                {logo
+                  ? <img src={logo} alt="Logo" style={{width:"100%",height:"100%",objectFit:"contain",padding:6}} />
+                  : <div style={{textAlign:"center"}}><div style={{fontSize:26}}>🏢</div><div style={{fontSize:10,color:B.muted,marginTop:3}}>Upload</div></div>
+                }
+              </div>
+              <div>
+                <button onClick={()=>fileRef.current?.click()} style={{display:"block",padding:"8px 16px",background:B.primary,color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:700,marginBottom:6,fontFamily:"inherit"}}>📁 Upload Logo</button>
+                {logo && <button onClick={()=>{setLogo(null);setF(p=>({...p,logoUrl:null}));}} style={{display:"block",padding:"6px 16px",background:B.light,color:B.danger,border:`1px solid ${B.border}`,borderRadius:8,cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>Remove</button>}
+                <div style={{fontSize:11,color:B.muted,marginTop:5}}>PNG/JPG/SVG · Max 2MB<br/>Shown on all RAMS headers</div>
+              </div>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleLogo} style={{display:"none"}} />
+          </div>
+
+          {/* Company info */}
+          <div style={{background:B.light,borderRadius:11,padding:"16px 18px",marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:700,color:B.primary,marginBottom:12}}>🏢 Company Information</div>
+            {inp("name","Company Name *","e.g. Apex Construction Ltd")}
+            {inp("address","Registered Address","e.g. 12 Industrial Way, Birmingham, B1 2AB")}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>{inp("phone","Phone","0121 456 7890")}</div>
+              <div>{inp("email","Email","info@company.com","email")}</div>
+            </div>
+            {inp("website","Website","www.yourcompany.com")}
+          </div>
+
+          {/* Compliance */}
+          <div style={{background:B.light,borderRadius:11,padding:"16px 18px",marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:700,color:B.primary,marginBottom:12}}>📋 Registration & Insurance</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>{inp("regNumber","Companies House Reg","12345678")}</div>
+              <div>{inp("vatNumber","VAT Number","GB 123 456 789")}</div>
+            </div>
+            {inp("insuranceRef","Public Liability Insurance Ref","PLI-2025-XXXXX")}
+            {inp("hseNumber","HSE Account / RIDDOR Ref","HSE-XXXXX")}
+          </div>
+
+          {/* H&S */}
+          <div style={{background:B.light,borderRadius:11,padding:"16px 18px",marginBottom:18}}>
+            <div style={{fontSize:12,fontWeight:700,color:B.primary,marginBottom:12}}>🦺 Health & Safety</div>
+            {inp("hsContact","Competent H&S Person / Advisor","e.g. John Smith CMIOSH")}
+            {inp("hsPhone","H&S Contact Phone","07700 900000")}
+            <div style={{marginBottom:0}}>
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:B.muted,marginBottom:4,textTransform:"uppercase",letterSpacing:0.8}}>Industry Sector</label>
+              <select value={f.sector||""} onChange={e=>setF(p=>({...p,sector:e.target.value}))}
+                style={{width:"100%",padding:"9px 11px",border:`1.5px solid ${B.border}`,borderRadius:8,fontSize:14,color:B.text,fontFamily:"inherit",background:"#fff"}}>
+                <option value="">Select sector…</option>
+                {["Construction","Electrical","Mechanical & HVAC","Plumbing","Roofing","Groundworks","Facilities Management","Manufacturing","Logistics","Oil & Gas","Utilities","Other"].map(s=><option key={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Preview */}
+          {f.name && (
+            <div style={{background:`linear-gradient(135deg,${B.primary},#1a3a6a)`,borderRadius:12,padding:"14px 18px",marginBottom:18,display:"flex",alignItems:"center",gap:12}}>
+              {logo && <img src={logo} alt="" style={{height:44,width:44,objectFit:"contain",borderRadius:8,background:"#fff",padding:3,flexShrink:0}} />}
+              <div>
+                <div style={{color:"#fff",fontWeight:800,fontSize:14}}>{f.name}</div>
+                {f.address && <div style={{color:"rgba(255,255,255,0.65)",fontSize:11,marginTop:1}}>{f.address}</div>}
+                <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:2}}>
+                  {f.phone && <span style={{color:"rgba(255,255,255,0.6)",fontSize:11}}>📞 {f.phone}</span>}
+                  {f.email && <span style={{color:"rgba(255,255,255,0.6)",fontSize:11}}>✉️ {f.email}</span>}
+                  {f.regNumber && <span style={{color:"rgba(255,255,255,0.5)",fontSize:11}}>Reg: {f.regNumber}</span>}
+                  {f.insuranceRef && <span style={{color:"rgba(255,255,255,0.5)",fontSize:11}}>PLI: {f.insuranceRef}</span>}
+                </div>
+                {f.hsContact && <div style={{color:"rgba(255,255,255,0.5)",fontSize:11,marginTop:1}}>H&S: {f.hsContact}</div>}
+              </div>
+              {f.sector && <span style={{marginLeft:"auto",background:"rgba(0,200,150,0.2)",border:"1px solid rgba(0,200,150,0.4)",borderRadius:20,padding:"3px 10px",fontSize:11,color:B.accent,fontWeight:700,flexShrink:0}}>{f.sector}</span>}
+            </div>
+          )}
+
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={onClose} style={{flex:1,padding:"12px",background:B.light,border:`1px solid ${B.border}`,borderRadius:10,cursor:"pointer",fontSize:14,fontWeight:600,color:B.muted,fontFamily:"inherit"}}>Cancel</button>
+            <button onClick={()=>{onSave(f);onClose();}} style={{flex:2,padding:"12px",background:B.accent,border:"none",borderRadius:10,cursor:"pointer",fontSize:14,fontWeight:800,color:"#fff",fontFamily:"inherit"}}>✓ Save Company Profile</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DocHeader({co}) {
+  if(!co.name) return null;
+  return (
+    <div style={{background:`linear-gradient(135deg,${B.primary},#1a3a6a)`,borderRadius:12,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:12}}>
+      {co.logoUrl && <img src={co.logoUrl} alt={co.name} style={{height:48,width:48,objectFit:"contain",borderRadius:8,background:"#fff",padding:3,flexShrink:0}} />}
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{color:"#fff",fontWeight:800,fontSize:14,marginBottom:2}}>{co.name}</div>
+        {co.address && <div style={{color:"rgba(255,255,255,0.6)",fontSize:11,marginBottom:2}}>{co.address}</div>}
+        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+          {co.phone && <span style={{color:"rgba(255,255,255,0.6)",fontSize:11}}>📞 {co.phone}</span>}
+          {co.email && <span style={{color:"rgba(255,255,255,0.6)",fontSize:11}}>✉️ {co.email}</span>}
+          {co.regNumber && <span style={{color:"rgba(255,255,255,0.45)",fontSize:11}}>Reg: {co.regNumber}</span>}
+          {co.insuranceRef && <span style={{color:"rgba(255,255,255,0.45)",fontSize:11}}>PLI: {co.insuranceRef}</span>}
+          {co.hsContact && <span style={{color:"rgba(255,255,255,0.45)",fontSize:11}}>H&S: {co.hsContact}</span>}
+        </div>
+      </div>
+      {co.sector && <span style={{background:"rgba(0,200,150,0.2)",border:"1px solid rgba(0,200,150,0.35)",borderRadius:20,padding:"3px 10px",fontSize:11,color:B.accent,fontWeight:700,flexShrink:0}}>{co.sector}</span>}
+    </div>
+  );
+}
+
+function ScoreBar({label,score,max,color}) {
+  return (
+    <div style={{marginBottom:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+        <span style={{fontSize:12,color:B.text}}>{label}</span>
+        <span style={{fontSize:12,fontWeight:700,color}}>{score}/{max}</span>
+      </div>
+      <div style={{height:7,background:"#E2E8F0",borderRadius:4,overflow:"hidden"}}>
+        <div style={{height:"100%",width:`${Math.round((score/max)*100)}%`,background:color,borderRadius:4,transition:"width 1s ease"}} />
+      </div>
+    </div>
+  );
+}
+
+function QuizMode({questions,onClose}) {
+  const [cur,setCur]=useState(0);const [sel,setSel]=useState(null);const [ans,setAns]=useState([]);const [done,setDone]=useState(false);
+  const q=questions[cur]; const score=ans.filter(a=>a.correct).length;
+  const next=()=>{const na=[...ans,{correct:sel===q.correct}];setAns(na);if(cur+1>=questions.length)setDone(true);else{setCur(c=>c+1);setSel(null);}};
+  if(done){const pass=score>=Math.ceil(questions.length*0.8);return(
+    <div style={{textAlign:"center",padding:28}}>
+      <div style={{fontSize:52,marginBottom:10}}>{pass?"🏆":"📚"}</div>
+      <h2 style={{fontSize:22,color:pass?B.accent:B.danger,marginBottom:6}}>{pass?"PASSED!":"RE-BRIEFING REQUIRED"}</h2>
+      <p style={{fontSize:16,marginBottom:16}}>Score: {score}/{questions.length} ({Math.round((score/questions.length)*100)}%)</p>
+      <p style={{color:B.muted,marginBottom:20,fontSize:13}}>{pass?"Worker cleared to proceed.":"Must be re-briefed before starting work."}</p>
+      <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+        <button onClick={()=>{setCur(0);setSel(null);setAns([]);setDone(false);}} style={{padding:"9px 20px",background:B.primary,color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>Retake</button>
+        <button onClick={onClose} style={{padding:"9px 20px",background:"#E2E8F0",color:B.text,border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>Close</button>
+      </div>
+    </div>
+  );}
+  return(
+    <div style={{padding:22}}>
+      <div style={{display:"flex",alignItems:"center",marginBottom:14,gap:10}}>
+        <span style={{fontSize:12,color:B.muted,flexShrink:0}}>Q{cur+1}/{questions.length}</span>
+        <div style={{flex:1,height:5,background:"#E2E8F0",borderRadius:3}}><div style={{height:"100%",width:`${(cur/questions.length)*100}%`,background:B.accent,borderRadius:3}}/></div>
+        <span style={{fontSize:12,color:B.accent,fontWeight:700,flexShrink:0}}>{score} ✓</span>
+      </div>
+      <h3 style={{fontSize:15,marginBottom:14,lineHeight:1.6}}>{q.question}</h3>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {q.options.map((opt,idx)=>{
+          let bg="#F7FAFC",border="#E2E8F0",col=B.text;
+          if(sel!==null){if(idx===q.correct){bg="#C6F6D5";border=B.accent;col="#276749";}else if(idx===sel){bg="#FED7D7";border=B.danger;col="#9B2C2C";}}
+          return(<button key={idx} onClick={()=>sel===null&&setSel(idx)} style={{padding:"11px 13px",background:bg,border:`2px solid ${border}`,borderRadius:8,cursor:sel!==null?"default":"pointer",textAlign:"left",color:col,fontFamily:"inherit",fontSize:13,transition:"all 0.2s"}}>
+            <span style={{fontWeight:700,marginRight:7}}>{["A","B","C","D"][idx]}.</span>{opt}
+          </button>);
+        })}
+      </div>
+      {sel!==null&&<div style={{marginTop:12,padding:11,background:sel===q.correct?"#F0FFF4":"#FFF5F5",borderRadius:8,borderLeft:`4px solid ${sel===q.correct?B.accent:B.danger}`}}><p style={{fontSize:12,margin:0}}><strong>{sel===q.correct?"✅ Correct!":"❌ Incorrect."}</strong> {q.explanation}</p></div>}
+      {sel!==null&&<button onClick={next} style={{marginTop:12,width:"100%",padding:"11px",background:B.primary,color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:14,fontFamily:"inherit"}}>{cur+1>=questions.length?"See Results":"Next →"}</button>}
+    </div>
+  );
+}
+
+const TABS=[{id:"generate",label:"⚡ Generate RAMS"},{id:"review",label:"📋 Review RAMS"},{id:"toolbox",label:"🎓 Toolbox Talk"}];
+const JURIS=["🇬🇧 UK (HSE)","🇪🇺 EU Directives","🇦🇪 UAE (OSHAD)","🇺🇸 US (OSHA)"];
+const EMPTY={name:"",address:"",phone:"",email:"",website:"",regNumber:"",vatNumber:"",insuranceRef:"",hseNumber:"",hsContact:"",hsPhone:"",sector:"",logoUrl:null};
+
+export default function RAMSHQApp() {
+  const [tab,setTab]=useState("generate");
+  const [input,setInput]=useState("");
+  const [msgs,setMsgs]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [juris,setJuris]=useState(JURIS[0]);
+  const [quizData,setQuizData]=useState(null);
+  const [showQuiz,setShowQuiz]=useState(false);
+  const [scoreData,setScoreData]=useState(null);
+  const [showModal,setShowModal]=useState(false);
+  const [co,setCo]=useState(EMPTY);
+  const endRef=useRef(null);
+
+  useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[msgs,loading]);
+
+  const parseQ=text=>{
+    const qs=[];const blocks=text.split(/Q\d+\./g).filter(b=>b.trim());
+    for(const b of blocks){const lines=b.trim().split("\n").filter(l=>l.trim());if(lines.length<4)continue;
+      const question=lines[0].trim();const opts=[];let correct=0,expl="";
+      for(const l of lines.slice(1)){const om=l.match(/^[A-D]\)\s*(.+)/);if(om)opts.push(om[1].trim());const cm=l.match(/CORRECT:\s*([A-D])/i);if(cm){correct="ABCD".indexOf(cm[1].toUpperCase());expl=l.replace(/.*CORRECT:\s*[A-D]\s*[-—]\s*/i,"").trim();}}
+      if(opts.length>=3)qs.push({question,options:opts,correct,explanation:expl});}
+    return qs;
+  };
+
+  const parseSc=text=>{
+    const sc={};
+    const patterns=[
+      {key:"hazard",label:"Hazard ID",max:25,regex:/Hazard Identification.*?(\d+)/i},
+      {key:"risk",label:"Risk Rating",max:20,regex:/Risk Rating.*?(\d+)/i},
+      {key:"control",label:"Controls",max:20,regex:/Control Measures.*?(\d+)/i},
+      {key:"ppe",label:"PPE Quality",max:15,regex:/PPE.*?(\d+)/i},
+      {key:"method",label:"Method Statement",max:10,regex:/Method Statement.*?(\d+)/i},
+      {key:"legal",label:"Legal Refs",max:10,regex:/Legal.*?(\d+)/i},
+    ];
+    for(const p of patterns){const m=text.match(p.regex);if(m)sc[p.key]={...p,score:Math.min(parseInt(m[1]),p.max)};}
+    const tm=text.match(/Overall.*?(\d+)\/100/i)||text.match(/(\d+)\/100/);if(tm)sc.total=parseInt(tm[1]);
+    return Object.keys(sc).length>1?sc:null;
+  };
+
+  const send=async()=>{
+    if(!input.trim()||loading)return;
+    const msg=input.trim();setInput("");
+    const prefix=tab==="review"?"MODE 1 — Review this RAMS:\n\n":tab==="generate"?`MODE 2 — Generate RAMS. Jurisdiction: ${juris}:\n\n`:"MODE 3 — Toolbox Talk + 10-question test for: ";
+    const newMsgs=[...msgs,{role:"user",content:msg}];
+    setMsgs(newMsgs);setLoading(true);
+    try{
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-allow-browser":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,system:buildPrompt(co),messages:newMsgs.map((m,i)=>({role:m.role,content:i===newMsgs.length-1&&m.role==="user"?prefix+m.content:m.content}))})});
+      const data=await res.json();const reply=data.content?.[0]?.text||"⚠️ No response.";
+      setMsgs(prev=>[...prev,{role:"assistant",content:reply}]);
+      if(tab==="toolbox"){const qs=parseQ(reply);if(qs.length>=5)setQuizData(qs);}
+      const sc=parseSc(reply);if(sc)setScoreData(sc);
+    }catch{setMsgs(prev=>[...prev,{role:"assistant",content:"⚠️ Connection error."}]);}
+    setLoading(false);
+  };
+
+  const ph={generate:"Describe the task in plain English. E.g: 'Installing electrical cabling in a commercial building, 4 electricians on site'",review:"Paste your existing RAMS document here for AI gap analysis against IOSH & NEBOSH standards...",toolbox:"Enter a task or paste a RAMS to generate a toolbox talk + interactive 10-question quiz..."};
+  const ex={generate:["Roof repair on 3-storey building, 2 workers","Excavation works near live services","Install heavy plant machinery in factory"],toolbox:["Working at height safety briefing","Manual handling induction","Electrical safety toolbox talk"],review:[]};
+
+  return(
+    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",background:B.light,minHeight:"100vh"}}>
+      <style>{`@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-7px)}} @keyframes fadeIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}} .msg{animation:fadeIn 0.3s ease} textarea:focus{outline:none!important;border-color:#00C896!important} ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-thumb{background:#CBD5E0;border-radius:3px} button{font-family:inherit}`}</style>
+
+      {/* ── HEADER ── */}
+      <div style={{background:B.primary,padding:"0 20px",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 12px rgba(0,0,0,0.18)"}}>
+        <div style={{maxWidth:1100,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",height:62}}>
+          <div style={{display:"flex",alignItems:"center",gap:11}}>
+            <div style={{width:34,height:34,background:B.accent,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🦺</div>
+            <div>
+              <div style={{color:"#fff",fontWeight:800,fontSize:19,letterSpacing:"-0.5px"}}>RAMS<span style={{color:B.accent}}>HQ</span></div>
+              <div style={{color:"rgba(255,255,255,0.45)",fontSize:10}}>AI Health & Safety Intelligence</div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+            {co.name&&(
+              <div style={{display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.08)",borderRadius:9,padding:"5px 11px",border:"1px solid rgba(255,255,255,0.12)"}}>
+                {co.logoUrl&&<img src={co.logoUrl} alt="" style={{height:20,width:20,objectFit:"contain",borderRadius:4,background:"#fff",padding:2}}/>}
+                <span style={{fontSize:12,fontWeight:700,color:"#fff"}}>{co.name}</span>
+                {co.sector&&<span style={{fontSize:10,color:B.accent,fontWeight:600}}>· {co.sector}</span>}
+              </div>
+            )}
+            <button onClick={()=>setShowModal(true)} style={{padding:"7px 14px",background:co.name?"rgba(0,200,150,0.15)":B.accent,color:co.name?B.accent:"#fff",border:co.name?`1px solid ${B.accent}44`:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5}}>
+              {co.name?"✏️ Edit Profile":"🏢 Add Company"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── TABS ── */}
+      <div style={{background:"#fff",borderBottom:`1px solid ${B.border}`,padding:"0 20px"}}>
+        <div style={{maxWidth:1100,margin:"0 auto",display:"flex"}}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>{setTab(t.id);setMsgs([]);setQuizData(null);setScoreData(null);}}
+              style={{padding:"13px 18px",border:"none",background:"none",cursor:"pointer",fontSize:13,fontWeight:600,color:tab===t.id?B.primary:B.muted,borderBottom:tab===t.id?`3px solid ${B.accent}`:"3px solid transparent",transition:"all 0.2s"}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"20px",display:"grid",gridTemplateColumns:msgs.length>0?"1fr 340px":"1fr",gap:20}}>
+        <div>
+          {/* No-company prompt */}
+          {!co.name&&(
+            <div style={{background:"#fffbeb",border:`1px solid #F6C34488`,borderRadius:11,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:9}}>
+                <span style={{fontSize:18}}>🏢</span>
+                <div>
+                  <div style={{fontWeight:700,fontSize:13,color:"#744210"}}>Add your company profile</div>
+                  <div style={{fontSize:12,color:"#92400e"}}>Your logo & details will appear on every generated RAMS document</div>
+                </div>
+              </div>
+              <button onClick={()=>setShowModal(true)} style={{padding:"7px 14px",background:B.warning,color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,flexShrink:0}}>Set Up →</button>
+            </div>
+          )}
+
+          {/* Company header strip */}
+          <DocHeader co={co} />
+
+          {/* Jurisdiction (generate only) */}
+          {tab==="generate"&&(
+            <div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:14,alignItems:"center"}}>
+              <span style={{fontSize:12,color:B.muted}}>Jurisdiction:</span>
+              {JURIS.map(j=>(
+                <button key={j} onClick={()=>setJuris(j)} style={{padding:"4px 12px",borderRadius:20,border:`1px solid ${juris===j?B.accent:B.border}`,background:juris===j?"rgba(0,200,150,0.1)":"#fff",cursor:"pointer",fontSize:12,fontWeight:juris===j?700:400,color:juris===j?"#00A07A":B.muted}}>
+                  {j}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {msgs.length===0&&(
+            <div style={{marginBottom:14}}>
+              <div style={{background:"#fff",borderRadius:11,padding:18,border:`1px solid ${B.border}`,marginBottom:10}}>
+                <h3 style={{margin:"0 0 5px",fontSize:14,color:B.primary}}>
+                  {tab==="generate"&&"⚡ Describe any task — get a fully branded RAMS in 60 seconds"}
+                  {tab==="review"&&"📋 Paste your RAMS for AI compliance gap analysis"}
+                  {tab==="toolbox"&&"🎓 Generate toolbox talks with interactive knowledge tests"}
+                </h3>
+                <p style={{margin:0,fontSize:12,color:B.muted}}>{co.name?`Documents branded with ${co.name} logo & details`:"Add your company profile to brand all generated documents"}</p>
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {ex[tab]?.map((p,i)=>(
+                  <button key={i} onClick={()=>setInput(p)} style={{padding:"6px 13px",background:"#fff",border:`1px solid ${B.border}`,borderRadius:20,cursor:"pointer",fontSize:12,color:B.primary,fontWeight:500}}
+                    onMouseOver={e=>e.target.style.borderColor=B.accent} onMouseOut={e=>e.target.style.borderColor=B.border}>{p}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Messages */}
+          {msgs.length>0&&(
+            <div style={{background:"#fff",borderRadius:11,border:`1px solid ${B.border}`,marginBottom:12,maxHeight:490,overflowY:"auto"}}>
+              {msgs.map((m,i)=>(
+                <div key={i} className="msg" style={{padding:"13px 16px",background:m.role==="user"?B.light:"#fff",borderBottom:i<msgs.length-1?`1px solid ${B.border}`:"none"}}>
+                  <div style={{display:"flex",gap:9,alignItems:"flex-start"}}>
+                    <div style={{width:26,height:26,borderRadius:"50%",flexShrink:0,background:m.role==="user"?B.primary:B.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",fontWeight:700,overflow:"hidden"}}>
+                      {m.role==="user"&&co.logoUrl?<img src={co.logoUrl} alt="" style={{width:26,height:26,objectFit:"cover"}}/>:m.role==="user"?"U":"🦺"}
+                    </div>
+                    <div style={{flex:1,fontSize:13.5,lineHeight:1.7,color:B.text,whiteSpace:"pre-wrap",overflowWrap:"break-word"}}>{m.content}</div>
+                  </div>
+                </div>
+              ))}
+              {loading&&(
+                <div style={{padding:"8px 16px",display:"flex",alignItems:"center",gap:9}}>
+                  <div style={{width:26,height:26,borderRadius:"50%",background:B.accent,display:"flex",alignItems:"center",justifyContent:"center"}}>🦺</div>
+                  <div style={{display:"flex",gap:5,padding:"10px 14px"}}>
+                    {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:"50%",background:B.accent,animation:"bounce 1.2s ease-in-out infinite",animationDelay:`${i*0.2}s`}}/>)}
+                  </div>
+                </div>
+              )}
+              <div ref={endRef}/>
+            </div>
+          )}
+
+          {/* Input */}
+          <div style={{background:"#fff",borderRadius:11,border:`1.5px solid ${B.border}`,overflow:"hidden"}}>
+            <textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&e.metaKey)send();}} placeholder={ph[tab]} rows={4}
+              style={{width:"100%",padding:"13px 15px",border:"none",resize:"none",fontSize:14,lineHeight:1.6,color:B.text,boxSizing:"border-box",fontFamily:"inherit"}}/>
+            <div style={{padding:"9px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:`1px solid ${B.border}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:11,color:B.muted}}>⌘+Enter</span>
+                {co.name&&<span style={{fontSize:11,color:B.accent,fontWeight:700}}>🏢 {co.name}</span>}
+              </div>
+              <button onClick={send} disabled={loading||!input.trim()} style={{padding:"9px 20px",background:loading||!input.trim()?"#CBD5E0":B.accent,color:"#fff",border:"none",borderRadius:8,cursor:loading||!input.trim()?"not-allowed":"pointer",fontWeight:700,fontSize:13}}>
+                {loading?"Generating…":tab==="review"?"🔍 Analyse":tab==="toolbox"?"🎓 Generate":"⚡ Generate RAMS"}
+              </button>
+            </div>
+          </div>
+
+          {/* Quiz launch */}
+          {quizData&&quizData.length>=5&&(
+            <div style={{marginTop:10,padding:"12px 16px",background:`linear-gradient(135deg,${B.primary},#1a4a7a)`,borderRadius:11,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{color:"#fff",fontWeight:700,fontSize:13}}>🎯 Knowledge Test Ready</div>
+                <div style={{color:"rgba(255,255,255,0.6)",fontSize:11}}>{quizData.length} questions · 80% pass mark{co.name?` · ${co.name}`:""}</div>
+              </div>
+              <button onClick={()=>setShowQuiz(true)} style={{padding:"8px 16px",background:B.accent,border:"none",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,color:"#fff"}}>Start Test →</button>
+            </div>
+          )}
+        </div>
+
+        {/* Score sidebar */}
+        {scoreData&&(
+          <div style={{background:"#fff",borderRadius:11,border:`1px solid ${B.border}`,padding:18,height:"fit-content"}}>
+            {co.logoUrl&&<div style={{textAlign:"center",marginBottom:12}}><img src={co.logoUrl} alt={co.name} style={{height:40,objectFit:"contain",borderRadius:6}}/><div style={{fontSize:11,fontWeight:700,color:B.muted,marginTop:3}}>{co.name}</div></div>}
+            <h3 style={{margin:"0 0 14px",fontSize:14,color:B.primary,fontWeight:700}}>📊 RAMS Quality Score</h3>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{width:82,height:82,borderRadius:"50%",margin:"0 auto",background:`conic-gradient(${scoreData.total>=80?B.accent:scoreData.total>=60?B.warning:B.danger} ${scoreData.total*3.6}deg,#E2E8F0 0deg)`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <div style={{width:62,height:62,borderRadius:"50%",background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
+                  <span style={{fontSize:20,fontWeight:900,color:scoreData.total>=80?B.accent:scoreData.total>=60?"#D69E2E":B.danger}}>{scoreData.total}</span>
+                  <span style={{fontSize:9,color:B.muted}}>/100</span>
+                </div>
+              </div>
+              <div style={{marginTop:6,fontSize:11,fontWeight:700,color:scoreData.total>=80?B.accent:scoreData.total>=60?"#D69E2E":B.danger}}>
+                {scoreData.total>=80?"✅ Strong":scoreData.total>=60?"⚠️ Needs Work":"❌ Non-Compliant"}
+              </div>
+            </div>
+            {Object.entries(scoreData).filter(([k])=>k!=="total").map(([k,v])=>(
+              <ScoreBar key={k} label={v.label} score={v.score} max={v.max} color={v.score/v.max>=0.8?B.accent:v.score/v.max>=0.6?B.warning:B.danger}/>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{background:B.primary,padding:"14px 20px",marginTop:8}}>
+        <div style={{maxWidth:1100,margin:"0 auto",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {["🔍 IOSH/NEBOSH","⚡ Generate","🦺 EN Standards","📊 Scoring","🌍 Multi-Jurisdiction","🎓 Toolbox Quiz","⚖️ Liability Score"].map((f,i)=>(
+              <span key={i} style={{fontSize:10,color:"rgba(255,255,255,0.45)",padding:"2px 8px",border:"1px solid rgba(255,255,255,0.1)",borderRadius:20}}>{f}</span>
+            ))}
+          </div>
+          <span style={{fontSize:10,color:"rgba(255,255,255,0.3)"}}>⚠️ AI draft — H&S professional review required · RAMS HQ © 2025</span>
+        </div>*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #F7FAFC;
+  color: #1A202C;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input, textarea, select {
+  font-family: inherit;
+}
+
+textarea {
+  resize: none;
+}
+
+/* Remove default button styles */
+button {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A0AEC0;
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid #00C896;
+  outline-offset: 2px;
+}
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+import Mobile from './Mobile.jsx'
+import './index.css'
+
+// Show mobile app on /mobile route, web app everywhere else
+const isMobilePath = window.location.pathname ==import { useState, useRef, useEffect } from "react";
+
+const C = {
+  navy:"#0B2240", navyMid:"#122d54", accent:"#00D4A0", accentDim:"#00A87E",
+  gold:"#F5C842", danger:"#FF4D4D", warning:"#FF9500",
+  surface:"#0F2D52", card:"#162F55", cardHi:"#1D3A63",
+  text:"#FFFFFF", textDim:"rgba(255,255,255,0.55)", textFaint:"rgba(255,255,255,0.28)",
+  border:"rgba(255,255,255,0.08)", glow:"rgba(0,212,160,0.15)",
+};
+
+function buildPrompt(co) {
+  const hdr = co.name ? `\nCOMPANY PROFILE — include in ALL document headers:
+Name: ${co.name}${co.address?`\nAddress: ${co.address}`:""}${co.phone?`\nPhone: ${co.phone}`:""}${co.email?`\nEmail: ${co.email}`:""}${co.regNumber?`\nReg: ${co.regNumber}`:""}${co.insuranceRef?`\nInsurance: ${co.insuranceRef}`:""}${co.hsContact?`\nH&S Contact: ${co.hsContact}`:""}${co.sector?`\nSector: ${co.sector}`:""}
+Doc ref format: ${co.name.replace(/\s+/g,"-").toUpperCase()}-[YEAR]-[###]\n` : "";
+
+  return `You are RAMS HQ — an expert AI Health & Safety consultant.${hdr}
+REGULATORY EXPERTISE: IOSH Managing Safely, NEBOSH NGC, UK HSE (HSWA 1974, Management Regs 1999, CDM 2015, PUWER, COSHH, Working at Height Regs 2005), EN ISO PPE standards, ISO 45001, UAE OSHAD-SF, EU OSH Directives, US OSHA.
+MOBILE OUTPUT: Use emoji markers (⚠️🦺✅❌📋), short paragraphs, bullet lists, bold key terms.
+
+MODE: GENERATE RAMS
+${co.name?`Open with:\n---\n**${co.name}**${co.address?`\n${co.address}`:""}${co.phone?`\nTel: ${co.phone}`:""}${co.email?` | ${co.email}`:""}${co.regNumber?`\nReg: ${co.regNumber}`:""}${co.insuranceRef?` | PLI: ${co.insuranceRef}`:""}${co.hsContact?`\nH&S: ${co.hsContact}`:""}
+---`:""}
+Include: Ref, Task, Personnel, Hazards (L×S matrix), 🦺 PPE (EVERY item with exact EN standard), Controls (5 levels), Method Statement, Emergency, Quality Score /100, ⚖️ Liability Score /10, Sign-off block.
+
+MODE: REVIEW RAMS — Gap analysis with ✅⚠️❌ table + scores + fixes.
+
+MODE: TOOLBOX TALK — Company header + briefing + 10-question MCQ:
+Q1. [question]
+A) B) C) D)
+CORRECT: [letter] — [explanation]
+Pass 8/10.
+
+RULE: NEVER say "appropriate PPE" — always exact item + EN standard.`;
+}
+
+// ── Company Profile Screen ────────────────────────────────────────
+function CompanyProfileScreen({ company, onSave, onBack }) {
+  const [f, setF] = useState({...company});
+  const [logo, setLogo] = useState(company.logoUrl || null);
+  const fileRef = useRef();
+
+  const inp = (key, label, ph, type = "text") => (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: C.textDim, marginBottom: 5, textTransform: "uppercase", letterSpacing: 1 }}>{label}</label>
+      <input type={type} value={f[key] || ""} onChange={e => setF(p => ({...p, [key]: e.target.value}))} placeholder={ph}
+        style={{ width: "100%", padding: "11px 13px", background: C.card, border: `1.5px solid ${C.border}`, borderRadius: 12, color: C.text, fontSize: 14, fontFamily: "inherit", boxSizing: "border-box", outline: "none" }}
+        onFocus={e => e.target.style.borderColor = C.accent}
+        onBlur={e => e.target.style.borderColor = C.border} />
+    </div>
+  );
+
+  const handleLogo = e => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = ev => { setLogo(ev.target.result); setF(p => ({...p, logoUrl: ev.target.result})); };
+    r.readAsDataURL(file);
+  };
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      {/* Header */}
+      <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <button onClick={onBack} style={{ width: 32, height: 32, borderRadius: 10, background: C.card, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.textDim, flexShrink: 0 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.accent }}>Company Profile</div>
+          <div style={{ fontSize: 11, color: C.textDim }}>Appears on every document</div>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 8px" }}>
+
+        {/* Logo upload */}
+        <div style={{ background: C.card, borderRadius: 14, padding: "16px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 12 }}>🏢 Company Logo</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div onClick={() => fileRef.current?.click()}
+              style={{ width: 80, height: 80, borderRadius: 14, border: `2px dashed ${logo ? C.accent : C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", overflow: "hidden", background: C.surface, flexShrink: 0 }}>
+              {logo
+                ? <img src={logo} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain", padding: 6 }} />
+                : <div style={{ textAlign: "center" }}><div style={{ fontSize: 24 }}>🏢</div><div style={{ fontSize: 9, color: C.textDim, marginTop: 3 }}>Tap to upload</div></div>
+              }
+            </div>
+            <div style={{ flex: 1 }}>
+              <button onClick={() => fileRef.current?.click()} style={{ display: "block", width: "100%", padding: "10px", background: C.accent, border: "none", borderRadius: 10, color: "#001a12", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", marginBottom: 8 }}>
+                📁 Upload Logo
+              </button>
+              {logo && <button onClick={() => { setLogo(null); setF(p => ({...p, logoUrl: null})); }} style={{ display: "block", width: "100%", padding: "8px", background: "transparent", border: `1px solid ${C.danger}44`, borderRadius: 10, color: C.danger, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Remove</button>}
+              <div style={{ fontSize: 10, color: C.textFaint, marginTop: 6 }}>PNG/JPG/SVG · Shows on all RAMS</div>
+            </div>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleLogo} style={{ display: "none" }} />
+        </div>
+
+        {/* Company info */}
+        <div style={{ background: C.card, borderRadius: 14, padding: "16px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 12 }}>🏢 Company Information</div>
+          {inp("name", "Company Name *", "e.g. Apex Construction Ltd")}
+          {inp("address", "Address", "e.g. 12 Industrial Way, Birmingham")}
+          {inp("phone", "Phone", "0121 456 7890")}
+          {inp("email", "Email", "info@company.com", "email")}
+          {inp("website", "Website", "www.yourcompany.com")}
+        </div>
+
+        {/* Compliance */}
+        <div style={{ background: C.card, borderRadius: 14, padding: "16px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 12 }}>📋 Registration & Insurance</div>
+          {inp("regNumber", "Companies House Reg", "12345678")}
+          {inp("insuranceRef", "Public Liability Insurance", "PLI-2025-XXXXX")}
+          {inp("hseNumber", "HSE Account Ref", "HSE-XXXXX")}
+        </div>
+
+        {/* H&S */}
+        <div style={{ background: C.card, borderRadius: 14, padding: "16px", border: `1px solid ${C.border}`, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 12 }}>🦺 Health & Safety</div>
+          {inp("hsContact", "H&S Competent Person", "e.g. John Smith CMIOSH")}
+          {inp("hsPhone", "H&S Contact Phone", "07700 900000")}
+          <div style={{ marginBottom: 0 }}>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: C.textDim, marginBottom: 5, textTransform: "uppercase", letterSpacing: 1 }}>Industry Sector</label>
+            <select value={f.sector || ""} onChange={e => setF(p => ({...p, sector: e.target.value}))}
+              style={{ width: "100%", padding: "11px 13px", background: C.card, border: `1.5px solid ${C.border}`, borderRadius: 12, color: f.sector ? C.text : C.textDim, fontSize: 14, fontFamily: "inherit" }}>
+              <option value="">Select sector…</option>
+              {["Construction","Electrical","Mechanical & HVAC","Plumbing","Roofing","Groundworks","Facilities Management","Manufacturing","Logistics","Oil & Gas","Utilities","Other"].map(s => <option key={s} style={{ background: C.card }}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Live preview */}
+        {f.name && (
+          <div style={{ background: `linear-gradient(135deg, ${C.navyMid}, ${C.card})`, borderRadius: 14, padding: "14px", border: `1px solid ${C.accent}33`, marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: C.accent, fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>PREVIEW — RAMS HEADER</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {logo && <img src={logo} alt="" style={{ height: 40, width: 40, objectFit: "contain", borderRadius: 8, background: "#fff", padding: 3, flexShrink: 0 }} />}
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13, color: C.text }}>{f.name}</div>
+                {f.address && <div style={{ fontSize: 11, color: C.textDim }}>{f.address}</div>}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+                  {f.phone && <span style={{ fontSize: 10, color: C.textDim }}>📞 {f.phone}</span>}
+                  {f.email && <span style={{ fontSize: 10, color: C.textDim }}>✉️ {f.email}</span>}
+                </div>
+                {f.regNumber && <div style={{ fontSize: 10, color: C.textFaint, marginTop: 1 }}>Reg: {f.regNumber}{f.insuranceRef ? ` · PLI: ${f.insuranceRef}` : ""}</div>}
+                {f.hsContact && <div style={{ fontSize: 10, color: C.textFaint }}>H&S: {f.hsContact}</div>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Save button */}
+      <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+        <button onClick={() => { onSave(f); onBack(); }} style={{ width: "100%", padding: "14px", background: C.accent, border: "none", borderRadius: 14, color: "#001a12", fontSize: 15, fontWeight: 900, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 4px 20px ${C.glow}` }}>
+          ✓ Save Company Profile
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Icons ─────────────────────────────────────────────────────────
+const Ic = ({ n, s=20, c="currentColor" }) => ({
+  home: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  generate: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+  review: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
+  toolbox: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
+  send: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
+  back: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
+  user: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  bell: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>,
+  check: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  arrow: <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+}[n] || null);
+
+function Spinner() {
+  return <div style={{ display: "flex", gap: 5, padding: "6px 0" }}>{[0,1,2].map(i=><div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent, animation: "rp 1.2s ease-in-out infinite", animationDelay: `${i*0.18}s` }}/>)}</div>;
+}
+
+function ScoreRing({ score, size=70 }) {
+  const r = size/2-5; const circ = 2*Math.PI*r;
+  const color = score>=80?C.accent:score>=60?C.warning:C.danger;
+  return (
+    <div style={{ position:"relative", width:size, height:size, flexShrink:0 }}>
+      <svg width={size} height={size} style={{ transform:"rotate(-90deg)" }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.border} strokeWidth="5"/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={circ} strokeDashoffset={circ*(1-score/100)} strokeLinecap="round" style={{ transition:"stroke-dashoffset 1s ease" }}/>
+      </svg>
+      <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+        <span style={{ fontSize:size*0.22, fontWeight:900, color, lineHeight:1 }}>{score}</span>
+        <span style={{ fontSize:size*0.13, color:C.textDim }}>/ 100</span>
+      </div>
+    </div>
+  );
+}
+
+function QuizScreen({ questions, onClose }) {
+  const [idx,setIdx]=useState(0);const [picked,setPicked]=useState(null);const [ans,setAns]=useState([]);const [done,setDone]=useState(false);
+  const q=questions[idx]; const score=ans.filter(Boolean).length;
+  const pick=i=>{if(picked!==null)return;setPicked(i);};
+  const next=()=>{const na=[...ans,picked===q.correct];setAns(na);if(idx+1>=questions.length)setDone(true);else{setIdx(i=>i+1);setPicked(null);}};
+  if(done){const pass=score>=Math.ceil(questions.length*0.8);return(
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,gap:16}}>
+      <div style={{fontSize:60}}>{pass?"🏆":"📚"}</div>
+      <div style={{fontSize:24,fontWeight:900,color:pass?C.accent:C.danger,textAlign:"center"}}>{pass?"Test Passed!":"Re-brief Required"}</div>
+      <ScoreRing score={Math.round((score/questions.length)*100)} size={90}/>
+      <div style={{textAlign:"center",color:C.textDim,fontSize:13,lineHeight:1.6}}>{score}/{questions.length} correct · Pass mark 80%<br/>{pass?"Worker cleared to proceed.":"Must be re-briefed before starting."}</div>
+      <button onClick={()=>{setIdx(0);setPicked(null);setAns([]);setDone(false);}} style={{width:"100%",padding:"13px",background:C.card,border:`1px solid ${C.border}`,borderRadius:12,color:C.text,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Retake</button>
+      <button onClick={onClose} style={{width:"100%",padding:"13px",background:C.accent,border:"none",borderRadius:12,color:"#001a12",fontSize:14,fontWeight:900,cursor:"pointer",fontFamily:"inherit"}}>Done ✓</button>
+    </div>
+  );}
+  return(
+    <div style={{flex:1,display:"flex",flexDirection:"column",padding:"14px 18px",gap:14,overflowY:"auto"}}>
+      <div style={{display:"flex",gap:3}}>{questions.map((_,i)=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<idx?C.accent:i===idx?`${C.accent}77`:C.border,transition:"background 0.3s"}}/>)}</div>
+      <div style={{fontSize:11,color:C.textDim}}>Q{idx+1} of {questions.length} · {score} correct</div>
+      <div style={{background:C.card,borderRadius:14,padding:16,border:`1px solid ${C.border}`,fontSize:14,fontWeight:600,lineHeight:1.6}}>{q.question}</div>
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {q.options.map((opt,i)=>{
+          const isC=i===q.correct,isP=i===picked;
+          let bg=C.card,border=C.border,col=C.text;
+          if(picked!==null){if(isC){bg="#003d2e";border=C.accent;col=C.accent;}else if(isP){bg="#3d0000";border=C.danger;col=C.danger;}}
+          return(<button key={i} onClick={()=>pick(i)} style={{padding:"12px 14px",background:bg,border:`1.5px solid ${border}`,borderRadius:12,textAlign:"left",cursor:picked!==null?"default":"pointer",color:col,fontSize:13,fontFamily:"inherit",transition:"all 0.2s",display:"flex",gap:10,alignItems:"center"}}>
+            <span style={{width:26,height:26,borderRadius:"50%",border:`1.5px solid ${border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:900,flexShrink:0}}>{["A","B","C","D"][i]}</span>
+            <span style={{flex:1}}>{opt}</span>
+            {picked!==null&&isC&&<Ic n="check" s={15} c={C.accent}/>}
+          </button>);
+        })}
+      </div>
+      {picked!==null&&<div style={{background:picked===q.correct?"#002d22":"#2d0000",border:`1px solid ${picked===q.correct?C.accent:C.danger}22`,borderRadius:10,padding:12,fontSize:12,color:C.textDim,lineHeight:1.6}}><strong style={{color:picked===q.correct?C.accent:C.danger}}>{picked===q.correct?"✓ Correct — ":"✗ Incorrect — "}</strong>{q.explanation}</div>}
+      {picked!==null&&<button onClick={next} style={{padding:"14px",background:C.accent,border:"none",borderRadius:12,color:"#001a12",fontSize:15,fontWeight:900,cursor:"pointer",fontFamily:"inherit",marginTop:"auto"}}>{idx+1>=questions.length?"See Results":"Next →"}</button>}
+    </div>
+  );
+}
+
+function Bubble({ msg, isUser, logo }) {
+  return(
+    <div style={{display:"flex",flexDirection:isUser?"row-reverse":"row",gap:8,alignItems:"flex-end",marginBottom:11}}>
+      {!isUser&&<div style={{width:26,height:26,borderRadius:"50%",background:`linear-gradient(135deg,${C.accent},${C.accentDim})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0,marginBottom:2}}>🦺</div>}
+      {isUser&&<div style={{width:26,height:26,borderRadius:"50%",background:logo?"transparent":C.navyMid,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:2,overflow:"hidden"}}>
+        {logo?<img src={logo} alt="" style={{width:26,height:26,objectFit:"cover"}}/>:<Ic n="user" s={14} c={C.textDim}/>}
+      </div>}
+      <div style={{maxWidth:"82%",padding:"11px 13px",borderRadius:isUser?"18px 18px 4px 18px":"18px 18px 18px 4px",background:isUser?`linear-gradient(135deg,${C.accent},${C.accentDim})`:C.card,border:isUser?"none":`1px solid ${C.border}`,color:isUser?"#001a12":C.text,fontSize:13,lineHeight:1.65,whiteSpace:"pre-wrap",overflowWrap:"break-word",fontWeight:isUser?600:400}}>
+        {msg}
+      </div>
+    </div>
+  );
+}
+
+function ChatScreen({ mode, company, onBack, onDocSaved }) {
+  const [msgs,setMsgs]=useState([]);const [input,setInput]=useState("");const [loading,setLoading]=useState(false);
+  const [juris,setJuris]=useState("🇬🇧 UK");const [quizData,setQuizData]=useState(null);const [showQuiz,setShowQuiz]=useState(false);const [score,setScore]=useState(null);
+  const endRef=useRef(null);
+  useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[msgs,loading]);
+
+  const cfg={
+    generate:{title:"Generate RAMS",color:C.accent,ph:"Describe the task… e.g. 'Roof repair on 3-storey building, 2 workers'"},
+    review:{title:"Review RAMS",color:C.gold,ph:"Paste your existing RAMS document for AI gap analysis…"},
+    toolbox:{title:"Toolbox Talk",color:"#A78BFA",ph:"Describe the topic or paste a RAMS to generate a talk + 10-question test…"},
+  }[mode];
+
+  const qp={generate:["Roof repair, 2 workers","Electrical install in ceiling void","Excavation near live services"],toolbox:["Working at height briefing","Manual handling induction"],review:[]}[mode]||[];
+
+  const parseQ=text=>{const qs=[];const blocks=text.split(/Q\d+\./g).filter(b=>b.trim());for(const b of blocks){const lines=b.trim().split("\n").filter(l=>l.trim());if(lines.length<4)continue;const question=lines[0].trim();const opts=[];let correct=0,expl="";for(const l of lines.slice(1)){const om=l.match(/^[A-D]\)\s*(.+)/);if(om)opts.push(om[1].trim());const cm=l.match(/CORRECT:\s*([A-D])/i);if(cm){correct="ABCD".indexOf(cm[1].toUpperCase());expl=l.replace(/.*CORRECT:\s*[A-D]\s*[-—]\s*/i,"").trim();}}if(opts.length>=3)qs.push({question,options:opts,correct,explanation:expl});}return qs;};
+  const parseScore=text=>{const m=text.match(/Quality Score[:\s]+(\d+)\/100/)||text.match(/(\d+)\/100/);return m?parseInt(m[1]):null;};
+
+  const send=async(ov)=>{
+    const msg=(ov||input).trim();if(!msg||loading)return;setInput("");
+    const prefix={generate:`MODE: GENERATE RAMS. Jurisdiction: ${juris}.\nTask: `,review:"MODE: REVIEW RAMS:\n",toolbox:"MODE: TOOLBOX TALK + 10-question test for: "}[mode];
+    const nm=[...msgs,{role:"user",content:msg}];setMsgs(nm);setLoading(true);
+    try{
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-allow-browser":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:3000,system:buildPrompt(company),messages:nm.map((m,i)=>({role:m.role,content:i===nm.length-1&&m.role==="user"?prefix+m.content:m.content}))})});
+      const data=await res.json();const reply=data.content?.[0]?.text||"⚠️ No response.";
+      setMsgs(prev=>[...prev,{role:"assistant",content:reply}]);
+      const sc=parseScore(reply);if(sc)setScore(sc);
+      if(mode==="toolbox"){const qs=parseQ(reply);if(qs.length>=5)setQuizData(qs);}
+      onDocSaved({type:mode,title:msg.slice(0,40),score:sc});
+    }catch{setMsgs(prev=>[...prev,{role:"assistant",content:"⚠️ Connection error."}]);}
+    setLoading(false);
+  };
+
+  return(
+    <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,position:"relative"}}>
+      {/* Top bar */}
+      <div style={{padding:"11px 14px",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+        <button onClick={onBack} style={{width:32,height:32,borderRadius:10,background:C.card,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:C.textDim,flexShrink:0}}>
+          <Ic n="back" s={15}/>
+        </button>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontWeight:800,color:cfg.color}}>{cfg.title}</div>
+          {company.name&&<div style={{fontSize:10,color:C.textDim}}>🏢 {company.name}</div>}
+        </div>
+        {score&&<ScoreRing score={score} size={38}/>}
+      </div>
+
+      {/* Company header strip */}
+      {company.name&&(
+        <div style={{margin:"10px 14px 0",background:`linear-gradient(135deg,${C.navyMid},${C.card})`,borderRadius:12,padding:"10px 12px",border:`1px solid ${C.accent}22`,display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          {company.logoUrl&&<img src={company.logoUrl} alt="" style={{height:32,width:32,objectFit:"contain",borderRadius:7,background:"#fff",padding:2,flexShrink:0}}/>}
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:800,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{company.name}</div>
+            <div style={{display:"flex",gap:8}}>
+              {company.phone&&<span style={{fontSize:10,color:C.textDim}}>📞 {company.phone}</span>}
+              {company.regNumber&&<span style={{fontSize:10,color:C.textFaint}}>Reg: {company.regNumber}</span>}
+            </div>
+          </div>
+          {company.sector&&<span style={{fontSize:10,color:C.accent,fontWeight:700,background:`${C.accent}15`,padding:"2px 8px",borderRadius:20,flexShrink:0}}>{company.sector}</span>}
+        </div>
+      )}
+
+      {/* Jurisdiction */}
+      {mode==="generate"&&(
+        <div style={{padding:"10px 14px 0",display:"flex",gap:6,overflowX:"auto",flexShrink:0}}>
+          {["🇬🇧 UK","🇪🇺 EU","🇦🇪 UAE","🇺🇸 US"].map(j=>(
+            <button key={j} onClick={()=>setJuris(j)} style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${juris===j?C.accent:C.border}`,background:juris===j?`${C.accent}22`:"transparent",color:juris===j?C.accent:C.textDim,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{j}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Messages */}
+      <div style={{flex:1,overflowY:"auto",padding:"12px 14px 8px"}}>
+        {msgs.length===0&&(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{textAlign:"center",padding:"20px 12px"}}>
+              <div style={{fontSize:36,marginBottom:10}}>{mode==="generate"?"⚡":mode==="review"?"🔍":"🎓"}</div>
+              <div style={{fontSize:13,fontWeight:700,color:cfg.color,marginBottom:5}}>{cfg.title}</div>
+              <div style={{fontSize:12,color:C.textDim,lineHeight:1.6}}>{cfg.ph}</div>
+              {company.name&&<div style={{fontSize:11,color:C.accent,marginTop:8,fontWeight:600}}>📄 Documents branded: {company.name}</div>}
+            </div>
+            {qp.map((p,i)=>(
+              <button key={i} onClick={()=>{setInput(p);send(p);}} style={{padding:"11px 13px",background:C.card,border:`1px solid ${C.border}`,borderRadius:12,textAlign:"left",cursor:"pointer",color:C.textDim,fontSize:13,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span>{p}</span><Ic n="arrow" s={13} c={C.textFaint}/>
+              </button>
+            ))}
+          </div>
+        )}
+        {msgs.map((m,i)=><Bubble key={i} msg={m.content} isUser={m.role==="user"} logo={company.logoUrl}/>)}
+        {loading&&(
+          <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:11}}>
+            <div style={{width:26,height:26,borderRadius:"50%",background:`linear-gradient(135deg,${C.accent},${C.accentDim})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>🦺</div>
+            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:"18px 18px 18px 4px",padding:"10px 14px"}}><Spinner/></div>
+          </div>
+        )}
+        <div ref={endRef}/>
+      </div>
+
+      {/* Quiz banner */}
+      {quizData&&quizData.length>=5&&(
+        <div style={{margin:"0 14px 8px",padding:"11px 14px",background:`linear-gradient(135deg,${C.navyMid},${C.card})`,borderRadius:12,border:"1px solid #A78BFA44",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:800,color:"#A78BFA"}}>🎯 Knowledge Test Ready</div>
+            <div style={{fontSize:10,color:C.textDim}}>{quizData.length} questions · 80% pass{company.name?` · ${company.name}`:""}</div>
+          </div>
+          <button onClick={()=>setShowQuiz(true)} style={{padding:"7px 14px",background:"#A78BFA",border:"none",borderRadius:9,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>Start →</button>
+        </div>
+      )}
+
+      {/* Input */}
+      <div style={{padding:"8px 12px 10px",borderTop:`1px solid ${C.border}`,flexShrink:0}}>
+        <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+          <div style={{flex:1,background:C.card,borderRadius:16,border:`1.5px solid ${input?cfg.color+"66":C.border}`,padding:"9px 12px",transition:"border-color 0.2s"}}>
+            <textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={cfg.ph} rows={1}
+              style={{width:"100%",background:"none",border:"none",outline:"none",color:C.text,fontSize:13,resize:"none",fontFamily:"inherit",lineHeight:1.5,maxHeight:90,overflowY:"auto"}}/>
+          </div>
+          <button onClick={()=>send()} disabled={loading||!input.trim()} style={{width:42,height:42,borderRadius:"50%",background:loading||!input.trim()?C.card:cfg.color,border:`1px solid ${loading||!input.trim()?C.border:"transparent"}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:loading||!input.trim()?"not-allowed":"pointer",flexShrink:0,transition:"all 0.2s",boxShadow:!loading&&input.trim()?`0 4px 16px ${cfg.color}44`:"none"}}>
+            <Ic n="send" s={16} c={loading||!input.trim()?C.textFaint:mode==="generate"?"#001a12":"#fff"}/>
+          </button>
+        </div>
+        <div style={{fontSize:9,color:C.textFaint,textAlign:"center",marginTop:6}}>⚠️ AI draft — H&S professional review required before use</div>
+      </div>
+
+      {/* Quiz modal */}
+      {showQuiz&&(
+        <div style={{position:"absolute",inset:0,background:C.navy,display:"flex",flexDirection:"column",zIndex:50}}>
+          <div style={{padding:"14px 16px 10px",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+            <button onClick={()=>setShowQuiz(false)} style={{width:32,height:32,borderRadius:10,background:C.card,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:C.textDim}}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:800,color:"#A78BFA"}}>Knowledge Test</div>
+              {company.name&&<div style={{fontSize:10,color:C.textDim}}>🏢 {company.name}</div>}
+            </div>
+            {company.logoUrl&&<img src={company.logoUrl} alt="" style={{height:28,width:28,objectFit:"contain",borderRadius:7,background:"#fff",padding:2}}/>}
+          </div>
+          <QuizScreen questions={quizData} onClose={()=>setShowQuiz(false)}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HomeScreen({ company, recentDocs, onNavigate, onOpenProfile }) {
+  const stats=[
+    {label:"RAMS Created",value:recentDocs.length,icon:"📋"},
+    {label:"Avg Quality",value:recentDocs.length?Math.round(recentDocs.reduce((a,d)=>a+(d.score||0),0)/recentDocs.length)+"%":"—",icon:"📊"},
+    {label:"Talks",value:recentDocs.filter(d=>d.type==="toolbox").length,icon:"🎓"},
+  ];
+  const actions=[
+    {label:"Generate RAMS",icon:"generate",color:C.accent,screen:"generate",desc:"Plain English → Full RAMS"},
+    {label:"Review RAMS",icon:"review",color:C.gold,screen:"review",desc:"Gap analysis & scoring"},
+    {label:"Toolbox Talk",icon:"toolbox",color:"#A78BFA",screen:"toolbox",desc:"Briefing + quiz"},
+    {label:"Company Profile",icon:"user",color:C.warning,action:"profile",desc:company.name||"Set up branding"},
+  ];
+
+  return(
+    <div style={{flex:1,overflowY:"auto",paddingBottom:16}}>
+      <div style={{padding:"18px 18px 0"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+          <div>
+            <div style={{fontSize:10,color:C.accent,fontWeight:800,letterSpacing:2,textTransform:"uppercase"}}>RAMS HQ</div>
+            <div style={{fontSize:20,fontWeight:900,letterSpacing:"-0.5px"}}>Dashboard</div>
+          </div>
+          <button onClick={()=>onNavigate("notifications")} style={{width:36,height:36,borderRadius:11,background:C.card,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:C.textDim,position:"relative"}}>
+            <Ic n="bell" s={17}/>
+            <div style={{position:"absolute",top:7,right:7,width:7,height:7,borderRadius:"50%",background:C.danger,border:`2px solid ${C.navy}`}}/>
+          </button>
+        </div>
+
+        {/* Company card */}
+        {company.name?(
+          <button onClick={onOpenProfile} style={{width:"100%",background:`linear-gradient(135deg,${C.navyMid},${C.card})`,borderRadius:16,padding:"14px 16px",border:`1px solid ${C.accent}33`,marginBottom:18,cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",alignItems:"center",gap:12}}>
+            {company.logoUrl?<img src={company.logoUrl} alt="" style={{height:44,width:44,objectFit:"contain",borderRadius:10,background:"#fff",padding:3,flexShrink:0}}/>:<div style={{width:44,height:44,borderRadius:10,background:C.surface,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🏢</div>}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:800,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{company.name}</div>
+              {company.address&&<div style={{fontSize:11,color:C.textDim,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{company.address}</div>}
+              {company.sector&&<span style={{fontSize:10,color:C.accent,fontWeight:700}}>{company.sector}</span>}
+            </div>
+            <div style={{fontSize:10,color:C.accent,fontWeight:700}}>Edit ›</div>
+          </button>
+        ):(
+          <button onClick={onOpenProfile} style={{width:"100%",background:"rgba(255,165,0,0.08)",borderRadius:14,padding:"14px 16px",border:"1px dashed rgba(255,165,0,0.3)",marginBottom:18,cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:44,height:44,borderRadius:10,background:"rgba(255,165,0,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🏢</div>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:C.warning}}>Add Company Profile</div>
+              <div style={{fontSize:11,color:C.textDim}}>Your logo & details appear on every RAMS</div>
+            </div>
+            <div style={{marginLeft:"auto",fontSize:16,color:C.warning}}>→</div>
+          </button>
+        )}
+
+        {/* Stats */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9,marginBottom:20}}>
+          {stats.map((s,i)=>(
+            <div key={i} style={{background:C.card,borderRadius:12,padding:"12px 10px",border:`1px solid ${C.border}`,textAlign:"center"}}>
+              <div style={{fontSize:18,marginBottom:3}}>{s.icon}</div>
+              <div style={{fontSize:18,fontWeight:900,color:C.accent}}>{s.value}</div>
+              <div style={{fontSize:9,color:C.textDim,marginTop:1,lineHeight:1.3}}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Quick actions */}
+        <div style={{fontSize:11,fontWeight:800,color:C.textDim,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>Quick Actions</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11,marginBottom:20}}>
+          {actions.map((a,i)=>(
+            <button key={i} onClick={()=>a.action==="profile"?onOpenProfile():onNavigate(a.screen)}
+              style={{padding:"16px 14px",background:C.card,borderRadius:16,border:`1px solid ${C.border}`,cursor:"pointer",textAlign:"left",display:"flex",flexDirection:"column",gap:9,fontFamily:"inherit"}}>
+              <div style={{width:38,height:38,borderRadius:11,background:`${a.color}22`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <Ic n={a.icon} s={19} c={a.color}/>
+              </div>
+              <div>
+                <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:2}}>{a.label}</div>
+                <div style={{fontSize:10,color:C.textDim,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Recent docs */}
+        {recentDocs.length>0&&(
+          <>
+            <div style={{fontSize:11,fontWeight:800,color:C.textDim,letterSpacing:1.5,textTransform:"uppercase",marginBottom:10}}>Recent Documents</div>
+            <div style={{display:"flex",flexDirection:"column",gap:9}}>
+              {recentDocs.slice(-3).reverse().map((doc,i)=>(
+                <div key={i} style={{background:C.card,borderRadius:12,padding:"12px 14px",border:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:11}}>
+                  <div style={{fontSize:22,flexShrink:0}}>{doc.type==="generate"?"📋":doc.type==="review"?"🔍":"🎓"}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{doc.title}</div>
+                    <div style={{fontSize:10,color:C.textDim}}>{doc.type==="generate"?"RAMS Generated":doc.type==="review"?"Gap Analysis":"Toolbox Talk"}</div>
+                  </div>
+                  {doc.score&&<ScoreRing score={doc.score} size={36}/>}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NotificationsScreen({ onBack }) {
+  const alerts=[
+    {icon:"🔔",title:"CDM 2015 Guidance Updated",body:"HSE has updated CDM 2015 guidance. Review your construction phase plans.",time:"2h",color:C.accent},
+    {icon:"⚠️",title:"3 RAMS Due for Review",body:"Annual review deadline approaching this month.",time:"1d",color:C.warning},
+    {icon:"🦺",title:"PPE Standard Update",body:"EN ISO 20345:2022 supersedes :2011 for safety footwear. Update RAMS.",time:"3d",color:C.gold},
+    {icon:"🌡️",title:"UAE Heat Restrictions Active",body:"Summer working hour restrictions now in force. Update RAMS for UAE sites.",time:"1w",color:"#A78BFA"},
+  ];
+  return(
+    <div style={{flex:1,display:"flex",flexDirection:"column"}}>
+      <div style={{padding:"12px 14px",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${C.border}`,flexShrink:0}}>
+        <button onClick={onBack} style={{width:32,height:32,borderRadius:10,background:C.card,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:C.textDim}}><Ic n="back" s={15}/></button>
+        <div style={{fontSize:14,fontWeight:800}}>Regulation Alerts</div>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:9}}>
+        {alerts.map((a,i)=>(
+          <div key={i} style={{background:C.card,borderRadius:12,padding:"13px 14px",border:`1px solid ${a.color}33`,display:"flex",gap:11,alignItems:"flex-start"}}>
+            <div style={{width:36,height:36,borderRadius:11,background:`${a.color}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>{a.icon}</div>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <div style={{fontSize:12,fontWeight:800,color:a.color}}>{a.title}</div>
+                <div style={{fontSize:10,color:C.textFaint}}>{a.time} ago</div>
+              </div>
+              <div style={{fontSize:11,color:C.textDim,lineHeight:1.5}}>{a.body}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const EMPTY_CO={name:"",address:"",phone:"",email:"",website:"",regNumber:"",vatNumber:"",insuranceRef:"",hseNumber:"",hsContact:"",hsPhone:"",sector:"",logoUrl:null};
+
+export default function RAMSHQMobile() {
+  const [screen,setScreen]=useState("home");
+  const [tab,setTab]=useState("home");
+  const [chatMode,setChatMode]=useState("generate");
+  const [recentDocs,setRecentDocs]=useState([]);
+  const [co,setCo]=useState(EMPTY_CO);
+
+  const nav=dest=>{
+    if(["generate","review","toolbox"].includes(dest)){setChatMode(dest);setScreen("chat");}
+    else setScreen(dest);
+  };
+  const handleTab=t=>{setTab(t);if(t==="home")setScreen("home");else nav(t);};
+
+  const tabs=[
+    {id:"home",icon:"home",label:"Home"},
+    {id:"generate",icon:"generate",label:"Generate"},
+    {id:"review",icon:"review",label:"Review"},
+    {id:"toolbox",icon:"toolbox",label:"Talks"},
+  ];
+  const tabColors={home:C.accent,generate:C.accent,review:C.gold,toolbox:"#A78BFA"};
+
+  return(
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#040d18",fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}}>
+      <style>{`@keyframes rp{0%,80%,100%{transform:translateY(0);opacity:.6}40%{transform:translateY(-5px);opacity:1}} @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}} *{-webkit-tap-highlight-color:transparent} textarea{scrollbar-width:none} textarea::-webkit-scrollbar{display:none} ::-webkit-scrollbar{width:0}`}</style>
+      <div style={{position:"fixed",inset:0,background:"radial-gradient(ellipse 60% 40% at 50% 0%,rgba(0,212,160,0.07) 0%,transparent 70%)",pointerEvents:"none"}}/>
+
+      {/* Phone */}
+      <div style={{width:390,height:844,background:C.navy,borderRadius:54,overflow:"hidden",position:"relative",boxShadow:"0 40px 120px rgba(0,0,0,0.8),0 0 0 1px rgba(255,255,255,0.08)",display:"flex",flexDirection:"column",animation:"fadeUp 0.6s ease both"}}>
+
+        {/* Status bar */}
+        <div style={{height:54,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 28px 0 24px",flexShrink:0,position:"relative",zIndex:10}}>
+          <div style={{fontSize:13,fontWeight:700}}>9:41</div>
+          <div style={{position:"absolute",left:"50%",transform:"translateX(-50%)",top:0,width:120,height:34,background:"#000",borderRadius:"0 0 20px 20px"}}/>
+          <div style={{display:"flex",gap:5,alignItems:"center"}}>
+            <div style={{display:"flex",gap:2,alignItems:"flex-end"}}>{[3,5,7,9].map((h,i)=><div key={i} style={{width:3,height:h,borderRadius:1.5,background:C.text}}/>)}</div>
+            <div style={{width:22,height:11,borderRadius:3,border:`1px solid ${C.text}`,position:"relative",padding:1.5}}>
+              <div style={{height:"100%",width:"70%",background:C.accent,borderRadius:1.5}}/>
+              <div style={{position:"absolute",right:-4,top:"50%",transform:"translateY(-50%)",width:3,height:5,background:C.text,borderRadius:"0 1px 1px 0"}}/>
+            </div>
+          </div>
+        </div>
+
+        {/* Screen content */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
+          {screen==="home"&&<HomeScreen company={co} recentDocs={recentDocs} onNavigate={nav} onOpenProfile={()=>setScreen("profile")}/>}
+          {screen==="chat"&&<ChatScreen mode={chatMode} company={co} onBack={()=>{setScreen("home");setTab("home");}} onDocSaved={d=>setRecentDocs(prev=>[...prev,d])}/>}
+          {screen==="profile"&&<CompanyProfileScreen company={co} onSave={setCo} onBack={()=>setScreen("home")}/>}
+          {screen==="notifications"&&<NotificationsScreen onBack={()=>setScreen("home")}/>}
+        </div>
+
+        {/* Bottom tabs */}
+        {!["chat","profile","notifications"].includes(screen)&&(
+          <div style={{height:80,background:`${C.navyMid}ee`,backdropFilter:"blur(20px)",borderTop:`1px solid ${C.border}`,display:"flex",alignItems:"flex-start",paddingTop:7,flexShrink:0}}>
+            {tabs.map(t=>{const active=tab===t.id;const ac=tabColors[t.id];return(
+              <button key={t.id} onClick={()=>handleTab(t.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:"pointer",padding:"7px 0",color:active?ac:C.textFaint,fontFamily:"inherit",transition:"all 0.2s"}}>
+                <div style={{width:38,height:28,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:9,background:active?`${ac}22`:"transparent",transition:"all 0.2s"}}><Ic n={t.icon} s={19} c={active?ac:C.textFaint}/></div>
+                <div style={{fontSize:9,fontWeight:active?800:500,letterSpacing:0.2}}>{t.label}</div>
+              </button>
+            );})}
+          </div>
+        )}
+
+        {/* Home indicator */}
+        <div style={{height:20,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,background:C.navy}}>
+          <div style={{width:130,height:4,borderRadius:2,background:"rgba(255,255,255,0.22)"}}/>
+        </div>
+      </div>
+
+      <div style={{position:"fixed",bottom:22,left:"50%",transform:"translateX(-50%)",textAlign:"center"}}>
+        <div style={{fontSize:12,color:"rgba(255,255,255,0.25)",fontWeight:600}}>RAMS HQ · Mobile App</div>
+        <div style={{fontSize:10,color:"rgba(255,255,255,0.13)",marginTop:2}}>iOS & Android · Powered by Claude AI</div>
+      </div>
+    </div>
+  );
+}
+= '/mobile'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    {isMobilePath ? <Mobile /> : <App />}
+  </React.StrictMode>
+)
+
+      </div>
+
+      {/* Modals */}
+      {showModal&&<CompanyModal company={co} onSave={setCo} onClose={()=>setShowModal(false)}/>}
+      {showQuiz&&quizData&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:20}}>
+          <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:560,maxHeight:"90vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+            <div style={{padding:"14px 20px",borderBottom:`1px solid ${B.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:9}}>
+                {co.logoUrl&&<img src={co.logoUrl} alt="" style={{height:24,objectFit:"contain",borderRadius:4}}/>}
+                <div style={{fontWeight:800,fontSize:15,color:B.primary}}>🎯 Knowledge Test{co.name?` · ${co.name}`:""}</div>
+              </div>
+              <button onClick={()=>setShowQuiz(false)} style={{background:"none",border:"none",fontSize:19,cursor:"pointer",color:B.muted}}>✕</button>
+            </div>
+            <QuizMode questions={quizData} onClose={()=>setShowQuiz(false)}/>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
